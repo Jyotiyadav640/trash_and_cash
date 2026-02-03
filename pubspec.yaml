@@ -1,0 +1,41 @@
+name: trash_cash_fixed1
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.2
+  camera: ^0.10.5+9
+  
+  firebase_core: ^3.10.0
+  firebase_auth: ^5.3.0
+  cloud_firestore: ^5.6.12
+  provider: ^6.0.5
+  flutter_local_notifications: ^13.0.0
+  firebase_messaging: ^15.0.0
+ 
+  image_picker: ^1.0.7
+  
+  lottie: ^2.2.0
+  image: ^4.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/animations/tree_grow.json
+    - assets/model/labels.txt
+    - assets/model/waste_model.tflite

@@ -42,8 +42,6 @@ final TextEditingController _emailEditController = TextEditingController();
 final TextEditingController _addressEditController = TextEditingController();
   StreamSubscription<DocumentSnapshot>? _userSubscription;
 
-  bool get _isNewUser => userPoints == 0 && totalWaste == 0;
-
   @override
   void dispose() {
     _userSubscription?.cancel();
@@ -265,8 +263,8 @@ Stream<int?> _giverRankStream() async* {
                 _buildSectionTitle('Your Impact'),
                 const SizedBox(height: 12),
                 _buildMissionsContainer(),
-                const SizedBox(height: 24),
-                if (!_isNewUser) ...[
+                if (userPoints > 0) ...[
+                  const SizedBox(height: 24),
                   _buildSectionTitle('Active Requests'),
                   const SizedBox(height: 12),
                   _buildActiveRequestsContainer(),
@@ -275,8 +273,8 @@ Stream<int?> _giverRankStream() async* {
                   const SizedBox(height: 12),
                   _buildRecentHistoryContainer(),
                   const SizedBox(height: 24),
+                  _buildEcoPointsRedemptionContainer(),
                 ],
-                _buildEcoPointsRedemptionContainer(),
               ],
             ),
           ),
@@ -486,7 +484,7 @@ Stream<int?> _giverRankStream() async* {
             title: 'Monthly Mission',
             icon: Icons.calendar_month,
             description: 'Recycle 5kg waste this month',
-            current: _isNewUser ? 0 : 3.2,
+            current: userPoints > 0 ? 3.2 : 0.0,
             target: 5.0,
             unit: 'kg',
             color: const Color(0xFF2E7D32),
@@ -498,7 +496,7 @@ Stream<int?> _giverRankStream() async* {
             title: 'Weekly Mission',
             icon: Icons.date_range,
             description: 'Collect 2kg waste this week',
-            current: _isNewUser ? 0 : 1.1,
+            current: userPoints > 0 ? 1.1 : 0.0,
             target: 2.0,
             unit: 'kg',
             color: const Color(0xFF1565C0),
@@ -512,8 +510,8 @@ Stream<int?> _giverRankStream() async* {
                 child: _buildDailyMissionCard(
                   icon: Icons.delete_outline,
                   title: 'Separate Waste',
-                  status: _isNewUser ? 'Pending' : 'Completed',
-                  isCompleted: !_isNewUser, // New: false, Old: true
+                  status: userPoints > 0 ? 'Completed' : '',
+                  isCompleted: userPoints > 0,
                 ),
               ),
               const SizedBox(width: 12),
@@ -521,7 +519,7 @@ Stream<int?> _giverRankStream() async* {
                 child: _buildDailyMissionCard(
                   icon: Icons.local_shipping,
                   title: 'Request Pickup',
-                  status: 'Pending',
+                  status: userPoints > 0 ? 'Pending' : '',
                   isCompleted: false,
                 ),
               ),
@@ -667,21 +665,23 @@ Stream<int?> _giverRankStream() async* {
             ),
           ),
           const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: statusColor,
+          const SizedBox(height: 6),
+          if (status.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

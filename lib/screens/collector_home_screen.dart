@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'alerts_screen.dart';
-
+import '../config/constants.dart';
 import 'package:trash_cash_fixed1/services/notifications_service.dart';
 
 import 'leaderboard_screen.dart';
@@ -479,6 +479,18 @@ Future<void> _submitReport(String userType) async {
     );
   }
 
+  String _getValidImageUrl(String url) {
+    if (url.isEmpty) return '';
+    try {
+      final uri = Uri.parse(url);
+      // Replace scheme, host, and port with current AppConstants.baseUrl
+      final base = Uri.parse(AppConstants.baseUrl);
+      return uri.replace(scheme: base.scheme, host: base.host, port: base.port).toString();
+    } catch (e) {
+      return url;
+    }
+  }
+
   Widget _buildSectionTitle(String title, String count) {
     return Row(
       children: [
@@ -613,7 +625,8 @@ Future<void> _submitReport(String userType) async {
                     if (user == null) return;
 
                     try {
-                      await FirebaseFirestore.instance.runTransaction((transaction) async {
+                      // 🔥 Capture the weight returned from the transaction
+                      final double? finalWeight = await FirebaseFirestore.instance.runTransaction((transaction) async {
                         final freshDoc = await transaction.get(doc.reference);
                         if (freshDoc['status'] != 'pending') {
                           throw Exception("Request is not pending (Status: ${freshDoc['status']})");
@@ -640,11 +653,11 @@ Future<void> _submitReport(String userType) async {
                           'completedAt': FieldValue.serverTimestamp(),
                         });
 
-                        transaction.update(collectorRef, {
+                        transaction.set(collectorRef, {
                           'totalPickups': FieldValue.increment(1),
                           'totalWaste': FieldValue.increment(parsedWeight),
                           'points': FieldValue.increment(10),
-                        });
+                        }, SetOptions(merge: true));
 
                         if (data['giverId'] != null) {
                           final giverRef = FirebaseFirestore.instance.collection('giverusers').doc(data['giverId']);
@@ -653,7 +666,20 @@ Future<void> _submitReport(String userType) async {
                             'totalWaste': FieldValue.increment(parsedWeight),
                           });
                         }
+                        
+                        return parsedWeight; // Return weight to be used outside
                       });
+                      
+                      // 🔥 FIX: Update local state immediately using the returned weight
+                      if (finalWeight != null) {
+                        setState(() {
+                          totalWaste += finalWeight;
+                          totalPickups += 1;
+                          if (_weightControllers.containsKey(doc.id)) {
+                            _weightControllers[doc.id]?.clear();
+                          }
+                        });
+                      }
 
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -791,11 +817,57 @@ Future<void> _submitReport(String userType) async {
                   // Content
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _infoTile('Location', data['address'] ?? 'Unknown', Icons.location_on_rounded),
-                        const SizedBox(height: 12),
-                        _infoTile('Phone', data['giverPhone']?.toString() ?? 'No Phone', Icons.phone_rounded),
+                        // Left Side: Details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _infoTile('Location', data['address'] ?? 'Unknown', Icons.location_on_rounded),
+                              const SizedBox(height: 12),
+                              _infoTile('Phone', data['giverPhone']?.toString() ?? 'No Phone', Icons.phone_rounded),
+                            ],
+                          ),
+                        ),
+                        
+                        // Right Side: Image (if waiting)
+                        if (data['imageUrl'] != null && data['imageUrl'].toString().isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              _getValidImageUrl(data['imageUrl']),
+                              height: 120, // Vertical rectangle height
+                              width: 100,  // Vertical rectangle width
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  height: 120,
+                                  width: 100,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  height: 120,
+                                  width: 100,
+                                  color: Colors.grey[100],
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 24, 
+                                      height: 24, 
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:file_picker/file_picker.dart';
+import '../config/constants.dart';
 import 'pickup_request_screen.dart';
 
 class AIWebViewScreen extends StatefulWidget {
@@ -41,14 +42,15 @@ class _AIWebViewScreenState extends State<AIWebViewScreen> {
               context,
               MaterialPageRoute(
                 builder: (_) => PickupRequestScreen(
-                  imageUrl: 'http://192.168.0.106:5000${parts[1]}',
+                  // Uses the centralized Base URL
+                  imageUrl: '${AppConstants.baseUrl}${parts[1]}',
                 ),
               ),
             );
           }
         },
       )
-      ..loadRequest(Uri.parse('http://192.168.0.106:5000'));
+      ..loadRequest(Uri.parse(AppConstants.baseUrl));
 
     _controller = controller;
   }

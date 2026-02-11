@@ -10,6 +10,12 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
+    
+    // Check if the user is a verified collector
+    function isCollector() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/collectorusers/$(request.auth.uid));
+    }
 
     function isAdminCollector() {
       return request.auth != null &&
@@ -20,78 +26,48 @@ service cloud.firestore {
 
     // ================= PICKUP REQUESTS =================
     match /pickup_requests/{docId} {
-
-      // ✅ All logged-in users can read
       allow read: if isLoggedIn();
-
-      // ✅ Giver can create pickup
       allow create: if isLoggedIn();
-
-      // ✅ Collector / giver can update status
-      allow update: if isLoggedIn();
-
-      // ❌ Delete not allowed
+      allow update: if isLoggedIn(); 
       allow delete: if false;
     }
 
     // ================= COLLECTOR USERS =================
     match /collectorusers/{userId} {
-
-      // ✅ Any logged-in user can read (leaderboard)
       allow read: if isLoggedIn();
-
-      // ✅ Owner can update own profile
       allow update: if isOwner(userId);
-
-      // ❌ No delete
       allow delete: if false;
-
-      // ❌ Create only via backend / signup
       allow create: if isLoggedIn();
     }
 
     // ================= GIVER USERS =================
     match /giverusers/{userId} {
-
-      // ✅ Any logged-in user can read (leaderboard)
       allow read: if isLoggedIn();
-
-      // ✅ Owner can update own profile
-      allow update: if isOwner(userId);
-
-      // ❌ No delete
+      // 🔥 FIX: Allow Owner OR Collector to update (for points)
+      allow update: if isOwner(userId) || isCollector();
       allow delete: if false;
-
-      // ❌ Create only via signup
       allow create: if isLoggedIn();
     }
 
-    // ================= REPORTS (giver + collector → admin) =================
+    // ================= REPORTS =================
     match /reports/{reportId} {
-
-      // ✅ Giver / Collector can create report
       allow create: if isLoggedIn();
-
-      // ✅ Only ADMIN (collector with isAdmin=true) can read all reports
       allow read: if isAdminCollector();
-
-      // ✅ Admin can update status (open → resolved)
       allow update: if isAdminCollector();
-
-      // ❌ Delete not allowed
       allow delete: if false;
+    }
+
+    // ================= NOTIFICATIONS =================
+    match /notifications/{notificationId} {
+      allow read: if isLoggedIn() && request.auth.uid == resource.data.userId;
+      allow create: if isLoggedIn(); // Allow anyone to send notification
+      allow update, delete: if isLoggedIn() && request.auth.uid == resource.data.userId;
     }
 
     // ================= ALERTS =================
     match /alerts/{alertId} {
-
-      // ✅ User can read own alerts
       allow read: if isLoggedIn();
-
-      // ✅ Admin / system can create alerts
       allow create: if isAdminCollector();
-
-      // ❌ Update & delete not allowed
       allow update, delete: if false;
     }
   }

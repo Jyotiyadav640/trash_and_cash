@@ -42,6 +42,9 @@ final TextEditingController _emailEditController = TextEditingController();
   // Dummy pickup lists (later Firestore se aayenge)
   final List<Map<String, dynamic>> _openPickups = [];
   final List<Map<String, dynamic>> _yourPickups = [];
+  
+  // Map to keep track of weight inputs for each pending request
+  final Map<String, TextEditingController> _weightControllers = {};
 
   @override
   void initState() {
@@ -136,6 +139,9 @@ final TextEditingController _emailEditController = TextEditingController();
     _phoneEditController.dispose();
     _emailEditController.dispose();
     _reportController.dispose();
+    for (var controller in _weightControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -432,28 +438,41 @@ Future<void> _submitReport(String userType) async {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Headers
-            if (pendingDocs.isNotEmpty) 
-              _buildSectionTitle('Pending Pickups', pendingDocs.length.toString()),
-            if (pendingDocs.isNotEmpty) const SizedBox(height: 12),
-
-            ...pendingDocs.map((doc) => _buildPickupCard(doc, isPending: true)),
-
-            if (pendingDocs.isEmpty && completedDocs.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('No activity yet', style: TextStyle(color: Colors.grey)),
+            // --- Pending Section ---
+            _buildSectionTitle('Pending Pickups', pendingDocs.length.toString()),
+            const SizedBox(height: 12),
+            
+            if (pendingDocs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text(
+                    'No pending pickups', 
+                    style: TextStyle(color: Colors.grey[400],fontStyle: FontStyle.italic),
+                  ),
                 ),
-              ),
+              )
+            else
+              ...pendingDocs.map((doc) => _buildPickupCard(doc, isPending: true)),
 
             const SizedBox(height: 24),
             
-            if (completedDocs.isNotEmpty)
-              _buildSectionTitle('Completed History', completedDocs.length.toString()),
-            if (completedDocs.isNotEmpty) const SizedBox(height: 12),
+            // --- Completed Section ---
+            _buildSectionTitle('Completed History', completedDocs.length.toString()),
+            const SizedBox(height: 12),
 
-            ...completedDocs.map((doc) => _buildPickupCard(doc, isPending: false)),
+            if (completedDocs.isEmpty)
+              Padding(
+                 padding: const EdgeInsets.symmetric(vertical: 20),
+                 child: Center(
+                   child: Text(
+                     'No completed pickups', 
+                     style: TextStyle(color: Colors.grey[400], fontStyle: FontStyle.italic),
+                   ),
+                 ),
+              )
+            else
+              ...completedDocs.map((doc) => _buildPickupCard(doc, isPending: false)),
           ],
         );
       },
@@ -501,157 +520,171 @@ Future<void> _submitReport(String userType) async {
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isPending ? const Color(0xFFFFF3E0) : const Color(0xFFE8F5E9),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isPending ? Icons.pending_actions_rounded : Icons.check_circle_rounded,
-                color: isPending ? Colors.orange : Colors.green,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  UserNameDisplay(
-                    giverId: data['giverId'] ?? '',
-                    currentName: data['giverName'],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF333333),
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isPending ? const Color(0xFFFFF3E0) : const Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
+                  child: Icon(
+                    isPending ? Icons.pending_actions_rounded : Icons.check_circle_rounded,
+                    color: isPending ? Colors.orange : Colors.green,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.recycling_rounded, size: 14, color: Colors.grey[500]),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${data['material']} • ${data['weight'] ?? data['approxWeight'] ?? '0'} kg',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
+                      UserNameDisplay(
+                        giverId: data['giverId'] ?? '',
+                        currentName: data['giverName'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF333333),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.phone_rounded, size: 14, color: Colors.grey[500]),
+                          const SizedBox(width: 4),
+                          Text(
+                            data['giverPhone']?.toString() ?? 'No Phone',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!isPending && data.containsKey('weight')) ...[
+                        const SizedBox(height: 6),
+                         Text(
+                           'Collected: ${data['weight']} kg',
+                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700], fontSize: 13),
+                         )
+                      ]
                     ],
                   ),
-                ],
-              ),
-            ),
-            if (isPending)
-              InkWell(
-                onTap: () async {
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user == null) return;
-
-                  try {
-                    await FirebaseFirestore.instance.runTransaction((transaction) async {
-                      // 🔥 LOCK DOCUMENT
-                      final freshDoc = await transaction.get(doc.reference);
-
-                      if (freshDoc['status'] != 'pending') {
-                         throw Exception("Request is not pending (Status: ${freshDoc['status']})");
-                      }
-
-                      final data = freshDoc.data() as Map<String, dynamic>;
-
-                      // 🔥 SAFE PARSING
-                      double parsedWeight = 0.0;
-                      final w = data['weight'];
-                      final aw = data['approxWeight'];
-
-                      if (w is num) {
-                        parsedWeight = w.toDouble();
-                      } else if (w is String) {
-                        parsedWeight = double.tryParse(w) ?? 0.0;
-                      }
-
-                      if (parsedWeight == 0.0) {
-                        if (aw is num) {
-                          parsedWeight = aw.toDouble();
-                        } else if (aw is String) {
-                          parsedWeight = double.tryParse(aw) ?? 0.0;
-                        }
-                      }
-
-                      final collectorRef = FirebaseFirestore.instance
-                          .collection('collectorusers')
-                          .doc(user.uid);
-
-                      // 1. Mark as Completed (Do NOT change collectorId, rely on existing)
-                      transaction.update(doc.reference, {
-                        'status': 'completed',
-                        'completedAt': FieldValue.serverTimestamp(),
-                      });
-
-                      // 2. Update Collector Stats
-                      transaction.update(collectorRef, {
-                        'totalPickups': FieldValue.increment(1),
-                        'totalWaste': FieldValue.increment(parsedWeight),
-                        'points': FieldValue.increment(10),
-                      });
-
-                      // 3. Update Giver Stats (if valid)
-                      if (data['giverId'] != null) {
-                        final giverRef = FirebaseFirestore.instance
-                            .collection('giverusers')
-                            .doc(data['giverId']);
-                            
-                        transaction.update(giverRef, {
-                          'points': FieldValue.increment(10),
-                          'totalWaste': FieldValue.increment(parsedWeight),
-                        });
-                      }
-                    });
-
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Pickup Completed Successfully!')),
-                      );
-                    }
-
-                    await NotificationService.sendNotification(
-                      userId: doc['giverId'],
-                      userType: 'giver',
-                      title: 'Pickup Completed',
-                      body: 'Your trash has been successfully collected by $name',
-                    );
-                  } catch (e) {
-                    debugPrint("Error completing pickup: $e");
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                },
-                borderRadius: BorderRadius.circular(30),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text('Complete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
-              )
-            else
-               Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F5E9),
+                if (!isPending)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text('Done', style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+              ],
+            ),
+            if (isPending) ...[
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _weightControllers.putIfAbsent(doc.id, () => TextEditingController()),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Enter Weight (kg)',
+                  hintText: 'e.g. 2.5',
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.scale_rounded, size: 20, color: Colors.grey),
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('Done', style: TextStyle(color: Color(0xFF2E7D32), fontWeight: FontWeight.bold, fontSize: 12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) return;
+
+                    try {
+                      await FirebaseFirestore.instance.runTransaction((transaction) async {
+                        final freshDoc = await transaction.get(doc.reference);
+                        if (freshDoc['status'] != 'pending') {
+                          throw Exception("Request is not pending (Status: ${freshDoc['status']})");
+                        }
+
+                        final data = freshDoc.data() as Map<String, dynamic>;
+                        final weightText = _weightControllers[doc.id]?.text.trim();
+                        if (weightText == null || weightText.isEmpty) {
+                          throw Exception("Please enter the weight first.");
+                        }
+
+                        final enteredWeight = double.tryParse(weightText);
+                        if (enteredWeight == null || enteredWeight <= 0) {
+                          throw Exception("Please enter a valid weight greater than 0.");
+                        }
+
+                        double parsedWeight = enteredWeight;
+
+                        final collectorRef = FirebaseFirestore.instance.collection('collectorusers').doc(user.uid);
+
+                        transaction.update(doc.reference, {
+                          'status': 'completed',
+                          'weight': parsedWeight,
+                          'completedAt': FieldValue.serverTimestamp(),
+                        });
+
+                        transaction.update(collectorRef, {
+                          'totalPickups': FieldValue.increment(1),
+                          'totalWaste': FieldValue.increment(parsedWeight),
+                          'points': FieldValue.increment(10),
+                        });
+
+                        if (data['giverId'] != null) {
+                          final giverRef = FirebaseFirestore.instance.collection('giverusers').doc(data['giverId']);
+                          transaction.update(giverRef, {
+                            'points': FieldValue.increment(10),
+                            'totalWaste': FieldValue.increment(parsedWeight),
+                          });
+                        }
+                      });
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Pickup Completed Successfully!')),
+                        );
+                      }
+                      await NotificationService.sendNotification(
+                        userId: doc['giverId'],
+                        userType: 'giver',
+                        title: 'Pickup Completed',
+                        body: 'Your trash has been successfully collected by $name',
+                      );
+                    } catch (e) {
+                      debugPrint("Error completing pickup: $e");
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Complete Pickup', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -762,9 +795,7 @@ Future<void> _submitReport(String userType) async {
                       children: [
                         _infoTile('Location', data['address'] ?? 'Unknown', Icons.location_on_rounded),
                         const SizedBox(height: 12),
-                        _infoTile('Material', data['material'] ?? 'Unknown', Icons.recycling_rounded),
-                        const SizedBox(height: 12),
-                        _infoTile('Weight', '${data['weight'] ?? data['approxWeight'] ?? '0'} kg', Icons.scale_rounded),
+                        _infoTile('Phone', data['giverPhone']?.toString() ?? 'No Phone', Icons.phone_rounded),
                       ],
                     ),
                   ),
@@ -1024,9 +1055,57 @@ Future<void> _submitReport(String userType) async {
           _buildSettingItem('Notifications', Icons.notifications_outlined, () {
              Navigator.push(context, MaterialPageRoute(builder: (_) => const AlertsScreen(userType: 'Collector')));
           }),
-          _buildSettingItem('Privacy & Security', Icons.lock_outline_rounded, () {}),
-          _buildSettingItem('Help & Support', Icons.help_outline_rounded, () {}),
-          _buildSettingItem('About App', Icons.info_outline_rounded, () {}),
+          _buildSettingItem('Privacy & Security', Icons.lock_rounded, () {
+            _showInfoScreen(
+              context,
+              'Privacy & Security',
+              '''We respect your privacy and are committed to protecting your personal data.
+
+All user information such as name, email, phone number, and activity data is securely stored using Firebase Authentication and Firestore.
+
+Your login credentials are encrypted and never shared with third parties.
+
+Only authorized access is allowed to your account through secure authentication.
+
+We do not sell or misuse your personal data under any circumstances.
+
+You have full control over your account and can request data updates or account removal anytime.''',
+            );
+          }),
+          _buildSettingItem('Help & Support', Icons.help_rounded, () {
+            _showInfoScreen(
+              context,
+              'Help & Support',
+              '''If you face any issues related to pickups, eco points, or account access, we are here to help.
+
+You can reach our support team via email or in-app support options.
+
+Our team will assist you with technical issues, feedback, and general queries.
+
+We continuously work to improve the app based on user feedback.''',
+            );
+          }),
+          _buildSettingItem('About App', Icons.info_rounded, () {
+            _showInfoScreen(
+              context,
+              'About App',
+              '''Trash Cash is a mobile app designed to help users manage their waste disposal and earn eco points for their efforts.
+
+Key Features:
+
+Pickup Requests: Users can request pickups for their waste.
+Eco Points: Users earn points for their waste disposal activities.
+Leaderboard: Users can track their progress and compare with others.
+Notifications: Users receive updates about their pickups and eco points.
+Support: Users can contact support for assistance.
+Privacy Policy: Users can view the app's privacy policy.
+Terms of Service: Users can view the app's terms of service.
+
+Version: 1.0.0
+Developer: Trash Cash Team
+Contact: support@trashcash.com''',
+            );
+          }),
 
           const SizedBox(height: 40),
 
@@ -1174,6 +1253,47 @@ Future<void> _submitReport(String userType) async {
             Expanded(child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF333333)))),
             const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Colors.grey),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showInfoScreen(BuildContext context, String title, String content) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: const Color(0xFFF4F9F4),
+          appBar: AppBar(
+            title: Text(title, style: const TextStyle(color: Color(0xFF1B5E20), fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1B5E20)),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                content,
+                style: const TextStyle(fontSize: 16, height: 1.6, color: Color(0xFF333333)),
+              ),
+            ),
+          ),
         ),
       ),
     );

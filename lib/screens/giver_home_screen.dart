@@ -42,6 +42,8 @@ final TextEditingController _emailEditController = TextEditingController();
 final TextEditingController _addressEditController = TextEditingController();
   StreamSubscription<DocumentSnapshot>? _userSubscription;
 
+  bool get _isNewUser => userPoints == 0 && totalWaste == 0;
+
   @override
   void dispose() {
     _userSubscription?.cancel();
@@ -264,14 +266,16 @@ Stream<int?> _giverRankStream() async* {
                 const SizedBox(height: 12),
                 _buildMissionsContainer(),
                 const SizedBox(height: 24),
-                _buildSectionTitle('Active Requests'),
-                const SizedBox(height: 12),
-                _buildActiveRequestsContainer(),
-                const SizedBox(height: 24),
-                _buildSectionTitle('Recent Activity'),
-                const SizedBox(height: 12),
-                _buildRecentHistoryContainer(),
-                const SizedBox(height: 24),
+                if (!_isNewUser) ...[
+                  _buildSectionTitle('Active Requests'),
+                  const SizedBox(height: 12),
+                  _buildActiveRequestsContainer(),
+                  const SizedBox(height: 24),
+                  _buildSectionTitle('Recent Activity'),
+                  const SizedBox(height: 12),
+                  _buildRecentHistoryContainer(),
+                  const SizedBox(height: 24),
+                ],
                 _buildEcoPointsRedemptionContainer(),
               ],
             ),
@@ -482,7 +486,7 @@ Stream<int?> _giverRankStream() async* {
             title: 'Monthly Mission',
             icon: Icons.calendar_month,
             description: 'Recycle 5kg waste this month',
-            current: 3.2,
+            current: _isNewUser ? 0 : 3.2,
             target: 5.0,
             unit: 'kg',
             color: const Color(0xFF2E7D32),
@@ -494,7 +498,7 @@ Stream<int?> _giverRankStream() async* {
             title: 'Weekly Mission',
             icon: Icons.date_range,
             description: 'Collect 2kg waste this week',
-            current: 1.1,
+            current: _isNewUser ? 0 : 1.1,
             target: 2.0,
             unit: 'kg',
             color: const Color(0xFF1565C0),
@@ -508,8 +512,8 @@ Stream<int?> _giverRankStream() async* {
                 child: _buildDailyMissionCard(
                   icon: Icons.delete_outline,
                   title: 'Separate Waste',
-                  status: 'Completed',
-                  isCompleted: true,
+                  status: _isNewUser ? 'Pending' : 'Completed',
+                  isCompleted: !_isNewUser, // New: false, Old: true
                 ),
               ),
               const SizedBox(width: 12),
@@ -1421,17 +1425,21 @@ We continuously work to improve the app based on user feedback.''',
             _showInfoScreen(
               context,
               'About App',
-              '''Eco-Reward is a digital recycling platform designed to promote sustainable living.
+              '''Trash Cash is a mobile app designed to help users manage their waste disposal and earn eco points for their efforts.
 
-Users can give waste materials like plastic, paper, glass, and metal for recycling.
+Key Features:
 
-The app connects users (Givers) with waste collectors in an easy and transparent way.
+Pickup Requests: Users can request pickups for their waste.
+Eco Points: Users earn points for their waste disposal activities.
+Leaderboard: Users can track their progress and compare with others.
+Notifications: Users receive updates about their pickups and eco points.
+Support: Users can contact support for assistance.
+Privacy Policy: Users can view the app's privacy policy.
+Terms of Service: Users can view the app's terms of service.
 
-For every successful recycling activity, users earn eco points or rewards.
-
-This initiative helps reduce pollution, encourages recycling, and supports a cleaner environment.
-
-By using this app, you are contributing to a greener and more sustainable future.''',
+Version: 1.0.0
+Developer: Trash Cash Team
+Contact: support@trashcash.com''',
             );
           }),
           

@@ -13,9 +13,7 @@ class PickupRequestScreen extends StatefulWidget {
 }
 
 class _PickupRequestScreenState extends State<PickupRequestScreen> {
-  final materialCtrl = TextEditingController();
   final confirmAddressCtrl = TextEditingController();
-  final weightCtrl = TextEditingController();
   final _nameEditController = TextEditingController();
 
   String currentAddress = '';
@@ -48,9 +46,7 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
   }
 
   Future<void> _sendPickupRequest() async {
-    if (materialCtrl.text.isEmpty ||
-        confirmAddressCtrl.text.isEmpty ||
-        weightCtrl.text.isEmpty) {
+    if (confirmAddressCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Fill all fields')));
       return;
@@ -62,10 +58,10 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
       'giverId': uid,
       'giverName': _nameEditController.text.trim(),
       'giverPhone': phone,
-      'material': materialCtrl.text.trim(),
+      'material': 'Not Specified', // Default value
       'address': confirmAddressCtrl.text.trim(),
-      'approxWeight': weightCtrl.text.trim(),
-      'weight': double.tryParse(weightCtrl.text.trim()) ?? 0.0,
+      'approxWeight': '0', // Default value
+      'weight': 0.0,
       'imageUrl': widget.imageUrl, // 🔥 IMAGE URL
       'status': 'open',
       'createdAt': FieldValue.serverTimestamp(),
@@ -121,12 +117,9 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
               ),
             ),
 
+            const SizedBox(height: 16),
             const Text('Your Name'),
             TextField(controller: _nameEditController),
-
-            const SizedBox(height: 16),
-            const Text('Material Type'),
-            TextField(controller: materialCtrl),
 
             const SizedBox(height: 16),
             const Text('Current Address'),
@@ -149,13 +142,6 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
                 decoration:
                     const InputDecoration(labelText: 'Confirm Address'),
               ),
-
-            const SizedBox(height: 16),
-            const Text('Approx Weight (kg)'),
-            TextField(
-              controller: weightCtrl,
-              keyboardType: TextInputType.number,
-            ),
 
             const SizedBox(height: 30),
             SizedBox(

@@ -1,0 +1,98 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ================= AUTH CHECK =================
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isAdminCollector() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/collectorusers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/collectorusers/$(request.auth.uid))
+          .data.isAdmin == true;
+    }
+
+    // ================= PICKUP REQUESTS =================
+    match /pickup_requests/{docId} {
+
+      // ✅ All logged-in users can read
+      allow read: if isLoggedIn();
+
+      // ✅ Giver can create pickup
+      allow create: if isLoggedIn();
+
+      // ✅ Collector / giver can update status
+      allow update: if isLoggedIn();
+
+      // ❌ Delete not allowed
+      allow delete: if false;
+    }
+
+    // ================= COLLECTOR USERS =================
+    match /collectorusers/{userId} {
+
+      // ✅ Any logged-in user can read (leaderboard)
+      allow read: if isLoggedIn();
+
+      // ✅ Owner can update own profile
+      allow update: if isOwner(userId);
+
+      // ❌ No delete
+      allow delete: if false;
+
+      // ❌ Create only via backend / signup
+      allow create: if isLoggedIn();
+    }
+
+    // ================= GIVER USERS =================
+    match /giverusers/{userId} {
+
+      // ✅ Any logged-in user can read (leaderboard)
+      allow read: if isLoggedIn();
+
+      // ✅ Owner can update own profile
+      allow update: if isOwner(userId);
+
+      // ❌ No delete
+      allow delete: if false;
+
+      // ❌ Create only via signup
+      allow create: if isLoggedIn();
+    }
+
+    // ================= REPORTS (giver + collector → admin) =================
+    match /reports/{reportId} {
+
+      // ✅ Giver / Collector can create report
+      allow create: if isLoggedIn();
+
+      // ✅ Only ADMIN (collector with isAdmin=true) can read all reports
+      allow read: if isAdminCollector();
+
+      // ✅ Admin can update status (open → resolved)
+      allow update: if isAdminCollector();
+
+      // ❌ Delete not allowed
+      allow delete: if false;
+    }
+
+    // ================= ALERTS =================
+    match /alerts/{alertId} {
+
+      // ✅ User can read own alerts
+      allow read: if isLoggedIn();
+
+      // ✅ Admin / system can create alerts
+      allow create: if isAdminCollector();
+
+      // ❌ Update & delete not allowed
+      allow update, delete: if false;
+    }
+  }
+}

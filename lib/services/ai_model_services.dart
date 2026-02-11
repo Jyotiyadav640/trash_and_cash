@@ -1,116 +1,46 @@
-import 'package:flutter/services.dart';
-//import 'package:tflite_flutter/tflite_flutter.dart';
-import 'package:image/image.dart' as img;
-import 'package:flutter/foundation.dart';
-import '../screens/camera_service.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 class AIModelService {
-  /// 🔹 Singleton pattern (important)
-  static final AIModelService instance = AIModelService._internal();
-  AIModelService._internal();
+  AIModelService._();
+  static final instance = AIModelService._();
 
-  //late Interpreter _interpreter;
-  late List<String> _labels;
-  bool _modelLoaded = false;
-  
+  static const String baseUrl = 'http://192.168.1.100:5000';
 
-  /// 🔹 Load model & labels (CALL ON APP START)
-  Future<void> loadModel() async {
-    try {
-    //  _interpreter = await Interpreter.fromAsset(
-     //   'assets/model/waste_model.tflite',
-      //);
+  final ImagePicker _picker = ImagePicker();
 
-      final labelsData =
-          await rootBundle.loadString('assets/model/labels.txt');
+  Future<File?> pickImageFromGallery() async {
+    final pickedFile =
+        await _picker.pickImage(source: ImageSource.gallery);
 
-      _labels = labelsData
-          .split('\n')
-          .where((e) => e.trim().isNotEmpty)
-          .toList();
-
-      _modelLoaded = true;
-      debugPrint('✅ AI Model Loaded Successfully');
-    } catch (e) {
-      debugPrint('❌ Model load error: $e');
-    }
+    if (pickedFile == null) return null;
+    return File(pickedFile.path);
   }
 
-  /// 🔹 Camera se image leke prediction
-  Future<Map<String, dynamic>> predictFromCamera() async {
-    if (!_modelLoaded) {
-      throw Exception('Model not loaded yet');
-    }
+  Future<Map<String, dynamic>> predictFromImage(File image) async {
+    print("🌐 Hitting API...");
 
-    if (_labels.isEmpty) {
-      throw Exception('Labels not loaded');
-    }
+    final uri = Uri.parse('http://127.0.0.1:5000/predictch');
+    final request = http.MultipartRequest('POST', uri);
 
-    final cameraImage =
-        await CameraService.controller!.takePicture();
-
-    final bytes = await cameraImage.readAsBytes();
-    final image = img.decodeImage(bytes);
-
-    if (image == null) {
-      throw Exception('Image decode failed');
-    }
-
-    final resized =
-        img.copyResize(image, width: 160, height: 160);
-
-    final input = List.generate(
-      1,
-      (_) => List.generate(
-        160,
-        (y) => List.generate(
-          160,
-          (x) {
-            final p = resized.getPixel(x, y);
-            return [
-              p.r / 255.0,
-              p.g / 255.0,
-              p.b / 255.0,
-            ];
-          },
-        ),
-      ),
+    request.files.add(
+      await http.MultipartFile.fromPath('file', image.path),
     );
+    print("🔥 predictFromImage CALLED");
+print("📸 Image path: ${image.path}");
 
-    final output =
-        List.generate(1, (_) => List.filled(_labels.length, 0.0));
+    final response = await request.send();
+    final body = await response.stream.bytesToString();
 
-    //_interpreter.run(input, output);
+    if (response.statusCode != 200) {
+      throw Exception('AI Server Error');
+    }
 
-    final maxIndex = output[0]
-        .indexOf(output[0].reduce((a, b) => a > b ? a : b));
+    return jsonDecode(body);
+    print("✅ API RESPONSE: $body");
 
-    return {
-      "label": _labels[maxIndex],
-      "confidence": output[0][maxIndex],
-      "recyclable": _isRecyclable(_labels[maxIndex]),
-      "points": _calculatePoints(_labels[maxIndex]),
-    };
-  }
 
-  /// 🔹 Helpers
-  bool _isRecyclable(String label) {
-    const recyclable = [
-      "plastic",
-      "paper",
-      "glass",
-      "metal",
-      "aluminum"
-    ];
-    return recyclable.any(
-        (e) => label.toLowerCase().contains(e));
-  }
-
-  int _calculatePoints(String label) {
-    label = label.toLowerCase();
-    if (label.contains("plastic")) return 20;
-    if (label.contains("paper")) return 10;
-    return 5;
   }
 }
-

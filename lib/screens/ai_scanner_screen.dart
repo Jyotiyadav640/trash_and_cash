@@ -40,10 +40,6 @@ class _AIScannerScreenState extends State<AIScannerScreen>
 void initState() {
   super.initState();
 
-  CameraService.initialize().then((_) {
-    if (mounted) setState(() {});
-  });
-
   _scanLineController = AnimationController(
     duration: const Duration(seconds: 2),
     vsync: this,
@@ -63,12 +59,31 @@ void initState() {
   }
 
 void _startDetection() async {
+  print("🟢 Scan button clicked");
+
   if (_isDetecting) return;
   setState(() => _isDetecting = true);
 
   try {
-    final result = await AIModelService.instance.predictFromCamera();
-    //final result = await AIModelService().predictFromCamera();
+    print("🟡 Picking image...");
+
+    final image =
+        await AIModelService.instance.pickImageFromGallery();
+
+    if (image == null) {
+      print("🔴 No image selected");
+      throw Exception("No image selected");
+    }
+
+    print("🟢 Image selected: ${image.path}");
+    print("🟡 Calling Flask AI...");
+
+    if (!mounted) return;
+
+final result =
+  await AIModelService.instance.predictFromImage(image);
+
+    print("🟢 AI RESULT RECEIVED: $result");
 
     if (!mounted) return;
 
@@ -84,24 +99,24 @@ void _startDetection() async {
     } else {
       _showNonRecyclablePopup();
     }
-  }catch (e) {
-  if (mounted) {
-        debugPrint("AI Error: $e");
+  } catch (e) {
+    print("❌ AI ERROR: $e");
 
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('AI Error: ${e.toString()}'),
+          content: Text('AI Error: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
-  }
-finally {
+  } finally {
     if (mounted) {
       setState(() => _isDetecting = false);
     }
   }
 }
+
 
 
 void _showRecyclablePopup(AIResult result) {
@@ -154,20 +169,23 @@ void _showNonRecyclablePopup() {
     builder: (_) => AlertDialog(
       title: const Text('Item Not Recyclable'),
       content: const Text(
-        'This item is not recyclable.\nPlease try scanning a recyclable waste item.',
+        'This item is not recyclable.\nPlease try another item.',
       ),
       actions: [
-        TextButton(
+        ElevatedButton(
           onPressed: () {
-            Navigator.pop(context); // close popup
-            Navigator.pop(context); // back to Home
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const GiverHomeScreen()),
+              (route) => false,
+            );
           },
-          child: const Text('OK'),
+          child: const Text('Go Back to Home'),
         ),
       ],
     ),
   );
 }
+
 
 
   @override
@@ -182,29 +200,14 @@ void _showNonRecyclablePopup() {
               // Fake camera feed
               // REAL Camera Preview
 // REAL camera preview
-CameraService.controller == null ||
-        !CameraService.controller!.value.isInitialized
-    ? const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF4CAF50),
-        ),
-      )
-    : CameraPreview(CameraService.controller!),
-
-
-
+Container(
+  width: double.infinity,
+  height: double.infinity,
+  color: Colors.black,
+),
 
               // Vignette effect
-              Container(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.4),
-                    ],
-                  ),
-                ),
-              ),
+              
 
               // Central Scanning Area
               Center(
@@ -1251,9 +1254,9 @@ class _PickupConfirmationScreenState
         .collection('pickup_requests')
         .add({
       'giverId': user.uid,
-      'giverName': giverDoc['name'],
-      'giverPhone': giverDoc['phone'],
-      'address': giverDoc['address'],
+      'giverName': giverDoc.data()?['name'] ?? 'Unknown',
+      'giverPhone': giverDoc.data()?['phone'] ?? '',
+      'address': giverDoc.data()?['address'] ?? '',
 
       'material': 'Plastic Bottle',
       'weight': 3.5,

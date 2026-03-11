@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'onboarding_screen.dart';
+import 'giver_home_screen.dart';
+import 'collector_home_screen.dart';
+import 'admin_home_screen.dart';
 import 'package:lottie/lottie.dart';
+import 'package:trash_cash_fixed1/services/fcm_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -59,15 +65,71 @@ class _SplashScreenState extends State<SplashScreen>
       return true;
     });
 
-    // Navigate forward
-    Future.delayed(const Duration(seconds: 5), () {
+    // Navigate forward after a delay to show splash animation
+    Future.delayed(const Duration(seconds: 4), () {
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-        );
+        _handleNavigation();
       }
     });
+  }
+
+  Future<void> _handleNavigation() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      try {
+        final uid = user.uid;
+
+        // 1. Check if user is a Collector or Admin
+        final collectorDoc = await FirebaseFirestore.instance
+            .collection('collectorusers')
+            .doc(uid)
+            .get();
+
+        if (collectorDoc.exists) {
+          final isAdmin = collectorDoc.data()?['isAdmin'] == true;
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => isAdmin ? const AdminHomeScreen() : const CollectorHomeScreen(),
+              ),
+            );
+          }
+          return;
+        }
+
+        // 2. Check if user is a Giver
+        final giverDoc = await FirebaseFirestore.instance
+            .collection('giverusers')
+            .doc(uid)
+            .get();
+
+        if (giverDoc.exists) {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const GiverHomeScreen()),
+            );
+          }
+          return;
+        }
+
+        // If user session exists but no role found in DB, something is wrong
+        // Sign out and go to onboarding
+        await FirebaseAuth.instance.signOut();
+      } catch (e) {
+        debugPrint('Session check error: $e');
+      }
+    }
+
+    // Default: Go to Onboarding for new users or if not logged in
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
+    }
   }
 
   @override

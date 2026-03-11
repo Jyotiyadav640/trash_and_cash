@@ -74,9 +74,9 @@ class _SignupScreenState extends State<SignupScreen> {
       if (!mounted) return;
 
       if (widget.userType.toLowerCase() == 'giver') {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const GiverHomeScreen()));
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const GiverHomeScreen()), (route) => false);
       } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const CollectorHomeScreen()));
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const CollectorHomeScreen()), (route) => false);
       }
     } on FirebaseAuthException catch (e) {
       String msg = (e.code == 'email-already-in-use') ? "This email is already registered." : (e.code == 'weak-password' ? "Password should be at least 6 characters." : (e.code == 'invalid-email' ? "Please enter a valid email address." : e.message ?? "Signup failed."));
@@ -140,6 +140,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       label: 'Full Name',
                       icon: Icons.person_outline_rounded,
                       validator: (v) => v!.isEmpty ? "Enter your name" : null,
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
                     _buildInputField(
@@ -148,6 +149,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       icon: Icons.alternate_email_rounded,
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) => v!.isEmpty ? "Enter email" : null,
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
                     _buildInputField(
@@ -156,6 +158,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       icon: Icons.phone_android_rounded,
                       keyboardType: TextInputType.phone,
                       validator: (v) => v!.isEmpty ? "Enter phone number" : null,
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
                     _buildInputField(
@@ -164,6 +167,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       icon: Icons.location_on_outlined,
                       maxLines: 2,
                       validator: (v) => v!.isEmpty ? "Enter address" : null,
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 16),
                     _buildInputField(
@@ -174,6 +178,8 @@ class _SignupScreenState extends State<SignupScreen> {
                       isPasswordVisible: _isPasswordVisible,
                       onToggleVisibility: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                       validator: (v) => v!.isEmpty ? "Enter password" : null,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _handleSignup(),
                     ),
 
                     const SizedBox(height: 40),
@@ -237,6 +243,8 @@ class _SignupScreenState extends State<SignupScreen> {
     TextInputType? keyboardType,
     int maxLines = 1,
     String? Function(String?)? validator,
+    TextInputAction? textInputAction,
+    void Function(String)? onFieldSubmitted,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -251,6 +259,9 @@ class _SignupScreenState extends State<SignupScreen> {
         obscureText: isPassword && !isPasswordVisible,
         keyboardType: keyboardType,
         maxLines: maxLines,
+        textInputAction: textInputAction,
+        onFieldSubmitted: onFieldSubmitted,
+        validator: validator,
         style: const TextStyle(fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           labelText: label,
@@ -265,7 +276,6 @@ class _SignupScreenState extends State<SignupScreen> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           labelStyle: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w400),
         ),
-        validator: validator,
       ),
     );
   }

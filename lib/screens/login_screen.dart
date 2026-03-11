@@ -41,10 +41,11 @@ class _LoginScreenState extends State<LoginScreen> {
       await collectorRef.set(updateData, SetOptions(merge: true));
 
       final isAdmin = collectorDoc.data()?['isAdmin'] == true;
+
       if (isAdmin) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminHomeScreen()));
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AdminHomeScreen()), (route) => false);
       } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CollectorHomeScreen()));
+        Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const CollectorHomeScreen()), (route) => false);
       }
       return;
     }
@@ -58,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
         'email': user.email,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const GiverHomeScreen()));
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const GiverHomeScreen()), (route) => false);
       return;
     }
 
@@ -186,6 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       label: 'Email Address',
                       icon: Icons.alternate_email_rounded,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: 20),
                     _buildTextField(
@@ -195,6 +197,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       isPassword: true,
                       isPasswordVisible: _isPasswordVisible,
                       onToggleVisibility: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _handleLogin(),
                     ),
 
                     Align(
@@ -265,6 +269,8 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isPasswordVisible = false,
     VoidCallback? onToggleVisibility,
     TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onFieldSubmitted,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -278,6 +284,8 @@ class _LoginScreenState extends State<LoginScreen> {
         controller: controller,
         obscureText: isPassword && !isPasswordVisible,
         keyboardType: keyboardType,
+        textInputAction: textInputAction,
+        onFieldSubmitted: onFieldSubmitted,
         style: const TextStyle(fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           labelText: label,

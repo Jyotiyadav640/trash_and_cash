@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'user_type_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lottie/lottie.dart';
@@ -372,9 +373,15 @@ Stream<int?> _giverRankStream() async* {
               child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserTypeScreen()),
+                    (route) => false,
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -1328,6 +1335,10 @@ _buildEditableField(
                 TextField(
                   controller: _reportController,
                   maxLines: 4,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (!isSubmittingReport) _submitReport('giver');
+                  },
                   decoration: InputDecoration(
                     hintText: 'Write your complaint or issue here...',
                     hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
@@ -1548,6 +1559,8 @@ Contact: support@trashcash.com''',
             const SizedBox(height: 12),
             TextField(
               controller: controller,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => onUpdate(),
               decoration: InputDecoration(
                 isDense: true,
                 filled: true,

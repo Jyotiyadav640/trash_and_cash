@@ -264,11 +264,11 @@ class PollutedCityIllustration extends StatelessWidget {
         const Positioned(top: 40, left: 20, child: FloatingIcon(icon: Icons.energy_savings_leaf, color: Colors.green, size: 55)), // Leaf/Nature
         const Positioned(top: 20, right: 30, child: FloatingIcon(icon: Icons.compost, color: Colors.teal, size: 60)), // Compost/Recycle
         const Positioned(bottom: 80, right: 10, child: FloatingIcon(icon: Icons.nature, color: Colors.lightGreen, size: 50)), // Nature
-        const Center(
-          child: Icon(
-            Icons.recycling, // Main: Recycling Symbol
-            size: 160,
-            color: Color(0xFF2E7D32), // Dark Green
+        Center(
+          child: Image.asset(
+            'lib/images/a.png',
+            width: 250,
+            height: 250,
           ),
         ),
       ],
@@ -292,11 +292,11 @@ class HandoverIllustration extends StatelessWidget {
         ),
         const Positioned(top: 30, left: 40, child: FloatingIcon(icon: Icons.attach_money, color: Colors.amber, size: 60)), // Money/Coins
         const Positioned(bottom: 60, left: 20, child: FloatingIcon(icon: Icons.emoji_events, color: Colors.orangeAccent, size: 50)), // Trophy/Points
-        const Center(
-          child: Icon(
-            Icons.card_giftcard, // Rewards/Gift box
-            size: 180,
-            color: Color(0xFF2E7D32),
+        Center(
+          child: Image.asset(
+            'lib/images/b.png',
+            width: 250,
+            height: 250,
           ),
         ),
       ],
@@ -320,11 +320,11 @@ class PlantingIllustration extends StatelessWidget {
         ),
         const Positioned(top: 20, child: FloatingIcon(icon: Icons.wb_sunny, color: Colors.orange, size: 60)), // Sun
         const Positioned(bottom: 100, left: 10, child: FloatingIcon(icon: Icons.water_drop, color: Colors.blue, size: 50)), // Water
-        const Center(
-          child: Icon(
-            Icons.forest, // Main: Forest/Nature
-            size: 180,
-            color: Color(0xFF1B5E20), // Deep Forest Green
+        Center(
+          child: Image.asset(
+            'lib/images/c.png',
+            width: 250,
+            height: 250,
           ),
         ),
       ],

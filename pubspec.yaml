@@ -42,3 +42,4 @@ flutter:
     - assets/animations/tree_grow.json
     - assets/model/labels.txt
     - assets/model/waste_model.tflite
+    - lib/images/

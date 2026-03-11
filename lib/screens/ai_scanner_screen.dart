@@ -926,21 +926,7 @@ void dispose() {
                 if (_currentStep > 0) const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      if (_currentStep < 2) {
-                        setState(() {
-                          _currentStep++;
-                        });
-                      } else {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const PickupConfirmationScreen(),
-                          ),
-                        );
-                      }
-                    },
+                    onPressed: _nextStep,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4CAF50),
                       shape: RoundedRectangleBorder(
@@ -963,6 +949,21 @@ void dispose() {
         ],
       ),
     );
+  }
+
+  void _nextStep() {
+    if (_currentStep < 2) {
+      setState(() {
+        _currentStep++;
+      });
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const PickupConfirmationScreen(),
+        ),
+      );
+    }
   }
 
   Widget _buildStepContent() {
@@ -1040,6 +1041,8 @@ void dispose() {
               TextField(
                 controller: _weightController,
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _nextStep(),
                 decoration: InputDecoration(
                   hintText: 'Enter weight',
                   filled: true,

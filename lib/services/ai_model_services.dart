@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import '../config/constants.dart';
 
 class AIModelService {
   AIModelService._();
   static final instance = AIModelService._();
 
-  static const String baseUrl = 'http://192.168.1.100:5000';
+  // static const String baseUrl = 'http://192.168.1.100:5000';
 
   final ImagePicker _picker = ImagePicker();
 
@@ -22,7 +23,7 @@ class AIModelService {
   Future<Map<String, dynamic>> predictFromImage(File image) async {
     print("🌐 Hitting API...");
 
-    final uri = Uri.parse('http://127.0.0.1:5000/predictch');
+    final uri = Uri.parse('${AppConstants.baseUrl}/predictch');
     final request = http.MultipartRequest('POST', uri);
 
     request.files.add(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trash_cash_fixed1/screens/user_type_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'alerts_screen.dart';
@@ -389,7 +390,11 @@ Future<void> _submitReport(String userType) async {
               onPressed: () async {
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserTypeScreen()),
+                    (route) => false,
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -605,6 +610,88 @@ Future<void> _submitReport(String userType) async {
               TextField(
                 controller: _weightControllers.putIfAbsent(doc.id, () => TextEditingController()),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) return;
+
+                    try {
+                      // 🔥 Capture the weight returned from the transaction
+                      final double? finalWeight = await FirebaseFirestore.instance.runTransaction((transaction) async {
+                        final freshDoc = await transaction.get(doc.reference);
+                        if (freshDoc['status'] != 'pending') {
+                          throw Exception("Request is not pending (Status: ${freshDoc['status']})");
+                        }
+
+                        final data = freshDoc.data() as Map<String, dynamic>;
+                        final weightText = _weightControllers[doc.id]?.text.trim();
+                        if (weightText == null || weightText.isEmpty) {
+                          throw Exception("Please enter the weight first.");
+                        }
+
+                        final enteredWeight = double.tryParse(weightText);
+                        if (enteredWeight == null || enteredWeight <= 0) {
+                          throw Exception("Please enter a valid weight greater than 0.");
+                        }
+
+                        double parsedWeight = enteredWeight;
+
+                        final collectorRef = FirebaseFirestore.instance.collection('collectorusers').doc(user.uid);
+
+                        transaction.update(doc.reference, {
+                          'status': 'completed',
+                          'weight': parsedWeight,
+                          'completedAt': FieldValue.serverTimestamp(),
+                        });
+
+                        transaction.set(collectorRef, {
+                          'totalPickups': FieldValue.increment(1),
+                          'totalWaste': FieldValue.increment(parsedWeight),
+                          'points': FieldValue.increment(10),
+                        }, SetOptions(merge: true));
+
+                        if (data['giverId'] != null) {
+                          final giverRef = FirebaseFirestore.instance.collection('giverusers').doc(data['giverId']);
+                          transaction.update(giverRef, {
+                            'points': FieldValue.increment(10),
+                            'totalWaste': FieldValue.increment(parsedWeight),
+                          });
+                        }
+                        
+                        return parsedWeight; // Return weight to be used outside
+                      });
+                      
+                      // 🔥 FIX: Update local state immediately using the returned weight
+                      if (finalWeight != null) {
+                        setState(() {
+                          totalWaste += finalWeight;
+                          totalPickups += 1;
+                          if (_weightControllers.containsKey(doc.id)) {
+                            _weightControllers[doc.id]?.clear();
+                          }
+                        });
+                      }
+
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Pickup Completed Successfully!')),
+                        );
+                      }
+                      await NotificationService.sendNotification(
+                        userId: doc['giverId'],
+                        userType: 'giver',
+                        title: 'Pickup Completed',
+                        body: 'Your trash has been successfully collected by $name',
+                      );
+                    } catch (e) {
+                      debugPrint("Error completing pickup: $e");
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                },
                 decoration: InputDecoration(
                   labelText: 'Enter Weight (kg)',
                   hintText: 'e.g. 2.5',
@@ -1090,6 +1177,10 @@ Future<void> _submitReport(String userType) async {
                 TextField(
                   controller: _reportController,
                   maxLines: 3,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (!isSubmittingReport) _submitReport('collector');
+                  },
                   decoration: InputDecoration(
                     hintText: 'Type your message...',
                     hintStyle: TextStyle(color: Colors.grey[400]),
@@ -1244,6 +1335,8 @@ Contact: support@trashcash.com''',
                 Expanded(
                   child: TextField(
                     controller: controller,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => onUpdate(),
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF333333)),
                     decoration: const InputDecoration(isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.zero),
                   ),

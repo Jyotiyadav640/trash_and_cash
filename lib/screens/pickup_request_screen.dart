@@ -119,7 +119,10 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
 
             const SizedBox(height: 16),
             const Text('Your Name'),
-            TextField(controller: _nameEditController),
+            TextField(
+              controller: _nameEditController,
+              textInputAction: TextInputAction.next,
+            ),
 
             const SizedBox(height: 16),
             const Text('Current Address'),
@@ -141,6 +144,8 @@ class _PickupRequestScreenState extends State<PickupRequestScreen> {
                 controller: confirmAddressCtrl,
                 decoration:
                     const InputDecoration(labelText: 'Confirm Address'),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _sendPickupRequest(),
               ),
 
             const SizedBox(height: 30),
